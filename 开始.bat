@@ -1,8 +1,8 @@
 @echo off
 chcp 65001 >nul
-title Antigravity BYOK Proxy
 cd /d "%~dp0"
 
+REM ========== 1. 提权 ==========
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo [UAC] Requesting admin privilege...
@@ -14,19 +14,24 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-REM check PID file
-if not exist "%TEMP%\antigravity-proxy.pid" goto check_exe
-set /p OLD_PID=<"%TEMP%\antigravity-proxy.pid"
-tasklist /fi "PID eq %OLD_PID%" 2>nul | findstr "%OLD_PID%" >nul
-if not errorlevel 1 (
-    echo [OK] Proxy already running (PID: %OLD_PID%)
-    pause
-    exit /b
+REM ========== 2. 停止已有代理 ==========
+title Antigravity BYOK - Stopping old instance...
+if exist "%TEMP%\antigravity-proxy.pid" (
+    set /p PID=<"%TEMP%\antigravity-proxy.pid"
+    tasklist /fi "PID eq %PID%" 2>nul | findstr "%PID%" >nul
+    if not errorlevel 1 (
+        echo [..] Stopping old proxy (PID: %PID%)...
+        taskkill /f /pid %PID% >nul 2>&1
+        if errorlevel 1 (echo [ERR] Failed to stop) else (echo [OK] Old proxy stopped)
+    )
+    del "%TEMP%\antigravity-proxy.pid" 2>nul
+) else (
+    powershell -NoProfile -Command "& { $p = Get-Process 'antigravity-proxy-bg' -ErrorAction SilentlyContinue; if ($p) { Write-Host 'Stopping old proxy...'; $p | Stop-Process -Force } }" 2>nul
 )
-del "%TEMP%\antigravity-proxy.pid" 2>nul
-echo [INFO] Cleaned stale PID file.
 
-:check_exe
+REM ========== 3. 启动代理 ==========
+title Antigravity BYOK - Starting...
+
 if not exist "antigravity-proxy-bg.exe" (
     echo [ERR] antigravity-proxy-bg.exe not found
     pause
@@ -35,7 +40,6 @@ if not exist "antigravity-proxy-bg.exe" (
 
 echo [..] Starting Antigravity BYOK Proxy...
 start "" antigravity-proxy-bg.exe --https-port=443 --http-port=8080 --setup-hosts --setup-cert
-
 ping -n 5 127.0.0.1 >nul
 
 if not exist "%TEMP%\antigravity-proxy.pid" goto start_failed
