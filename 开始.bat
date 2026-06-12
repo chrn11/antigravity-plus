@@ -3,10 +3,10 @@ chcp 65001 >nul
 title Antigravity BYOK 代理
 set SELF_DIR=%~dp0
 
-REM 以管理员权限运行
+REM 以管理员权限运行（使用完整路径避免中文编码问题）
 net session >nul 2>&1
 if %errorlevel% neq 0 (
-    powershell -Command "Start-Process -FilePath '%SELF_DIR%开始.bat' -Verb RunAs -WorkingDirectory '%SELF_DIR%'"
+    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs" 2>nul
     exit /b
 )
 
