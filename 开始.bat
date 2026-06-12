@@ -34,6 +34,18 @@ if %errorlevel% neq 0 (
     goto menu
 )
 
+REM clean up any old instance
+if exist "%TEMP%\antigravity-proxy.pid" (
+    set /p PID=<"%TEMP%\antigravity-proxy.pid"
+    tasklist /fi "PID eq %PID%" 2>nul | findstr "%PID%" >nul
+    if not errorlevel 1 (
+        taskkill /f /pid %PID% >nul 2>&1
+    )
+    del "%TEMP%\antigravity-proxy.pid" 2>nul
+) else (
+    powershell -NoProfile -Command "& { $p = Get-Process 'antigravity-proxy-bg' -ErrorAction SilentlyContinue; if ($p) { $p | Stop-Process -Force } }" 2>nul
+)
+
 if not exist "antigravity-proxy-bg.exe" (
     echo [ERR] antigravity-proxy-bg.exe not found
     pause
