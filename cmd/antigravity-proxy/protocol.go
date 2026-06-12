@@ -240,6 +240,14 @@ func parsePart(pm map[string]interface{}) *Part {
 		}
 		hasContent = true
 	}
+	if id, ok := pm["inlineData"].(map[string]interface{}); ok {
+		if m, ok := id["mimeType"].(string); ok {
+			if d, ok := id["data"].(string); ok {
+				part.InlineData = &InlineData{MimeType: m, Data: d}
+				hasContent = true
+			}
+		}
+	}
 	if !hasContent && part.Text == "" {
 		return nil
 	}
@@ -462,7 +470,9 @@ func convertToOpenAI(gemini *GeminiRequest, model string, apiKey string, baseURL
 				textParts = append(textParts, fmt.Sprintf("[FunctionCall: %s(%s)]", p.FunctionCall.Name, string(argsBytes)))
 			} else if p.FunctionResponse != nil {
 				respBytes, _ := json.Marshal(p.FunctionResponse.Response)
-				textParts = append(textParts, fmt.Sprintf("[FunctionResponse: %s → %s]", p.FunctionResponse.Name, string(respBytes)))
+				textParts = append(textParts, fmt.Sprintf("[FunctionResponse: %s -> %s]", p.FunctionResponse.Name, string(respBytes)))
+			} else if p.InlineData != nil {
+				textParts = append(textParts, fmt.Sprintf("[InlineData: %s, %d bytes]", p.InlineData.MimeType, len(p.InlineData.Data)))
 			} else if p.Thought {
 				thoughtParts = append(thoughtParts, p.Text)
 			} else {
