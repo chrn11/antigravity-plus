@@ -15,7 +15,6 @@ func main() {
 	httpPort := flag.Int("http-port", 8080, "HTTP 代理端口（非 TLS，给 Go 二进制管理端点用）")
 	httpsPort := flag.Int("https-port", 443, "HTTPS MITM 代理端口（拦截 Google AI 请求）")
 	configDir := flag.String("config", "", "配置目录（默认 %APPDATA%/antigravity-plus）")
-	setupHosts := flag.Bool("setup-hosts", false, "自动配置 hosts 文件（仅首次安装时需要）")
 	setupCert := flag.Bool("setup-cert", false, "自动安装 CA 证书（仅首次安装时需要）")
 	flag.Parse()
 
@@ -58,7 +57,7 @@ func main() {
 		}
 	}
 
-	// hosts 文件管理
+	// hosts 文件管理（随代理生命周期：启动添加，退出移除）
 	hm := NewHostsManager()
 	targetDomains := []string{
 		"aicode.googleapis.com",
@@ -67,16 +66,15 @@ func main() {
 		"www.googleapis.com",
 	}
 
-	if *setupHosts {
-		if err := hm.AddEntries(targetDomains); err != nil {
-			log.Printf("⚠ 配置 hosts 文件失败（需要管理员权限）: %v", err)
-			log.Printf("  请手动添加以下条目到 C:\\Windows\\System32\\drivers\\etc\\hosts:")
-			for _, d := range targetDomains {
-				log.Printf("    127.0.0.1 %s", d)
-			}
-		} else {
-			log.Printf("✓ hosts 文件已配置（%d 个域名，持久化）", len(targetDomains))
+	if err := hm.AddEntries(targetDomains); err != nil {
+		log.Printf("⚠ 配置 hosts 文件失败（需要管理员权限）: %v", err)
+		log.Printf("  请手动添加以下条目到 C:\\Windows\\System32\\drivers\\etc\\hosts:")
+		for _, d := range targetDomains {
+			log.Printf("    127.0.0.1 %s", d)
 		}
+	} else {
+		log.Printf("✓ hosts 文件已配置（%d 个域名）", len(targetDomains))
+		defer hm.RemoveEntries(targetDomains)
 	}
 
 	// 启动 HTTP 代理（管理端点）

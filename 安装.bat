@@ -27,11 +27,11 @@ copy /Y "%~dp0安装.bat" "%INSTALL_DIR%\" >nul
 
 echo ✅ 安装完成
 
-REM 一次性配置 hosts 和证书
-echo 正在配置 hosts 和证书...
-start /B "" antigravity-proxy-bg.exe --setup-hosts --setup-cert
+REM 一次性安装 CA 证书
+echo 正在安装 CA 证书...
+start /B "" antigravity-proxy-bg.exe --setup-cert
 ping -n 3 127.0.0.1 >nul
-echo ✅ hosts 和证书配置完毕
+echo ✅ CA 证书安装完毕
 
 REM 创建配置文件目录和默认文件
 set CONFIG_DIR=%APPDATA%\antigravity-plus
