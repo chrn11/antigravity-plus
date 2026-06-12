@@ -20,6 +20,7 @@ var hijackedDomains = []string{
 	"daily-cloudcode-pa.googleapis.com",
 	"cloudcode-pa.googleapis.com",
 	"generativelanguage.googleapis.com",
+	"www.googleapis.com",
 }
 
 // isHijackedDomain 检查域名是否被 hosts 文件劫持

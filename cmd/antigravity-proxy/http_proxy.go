@@ -499,6 +499,7 @@ func resolveGoogleHost(path string, host string) string {
 		"aiplatform.googleapis.com",
 		"generativelanguage.googleapis.com",
 		"aicode.googleapis.com",
+		"www.googleapis.com",
 	}
 	for _, h := range googleHosts {
 		if strings.Contains(host, h) {

@@ -64,6 +64,7 @@ func main() {
 		"aicode.googleapis.com",
 		"aiplatform.googleapis.com",
 		"daily-cloudcode-pa.googleapis.com",
+		"www.googleapis.com",
 	}
 
 	if *setupHosts {
