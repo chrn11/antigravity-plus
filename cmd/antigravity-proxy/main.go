@@ -15,8 +15,8 @@ func main() {
 	httpPort := flag.Int("http-port", 8080, "HTTP 代理端口（非 TLS，给 Go 二进制管理端点用）")
 	httpsPort := flag.Int("https-port", 443, "HTTPS MITM 代理端口（拦截 Google AI 请求）")
 	configDir := flag.String("config", "", "配置目录（默认 %APPDATA%/antigravity-plus）")
-	setupHosts := flag.Bool("setup-hosts", true, "自动配置 hosts 文件")
-	setupCert := flag.Bool("setup-cert", true, "自动安装 CA 证书")
+	setupHosts := flag.Bool("setup-hosts", false, "自动配置 hosts 文件（仅首次安装时需要）")
+	setupCert := flag.Bool("setup-cert", false, "自动安装 CA 证书（仅首次安装时需要）")
 	flag.Parse()
 
 	// 初始化日志（同时输出到控制台和文件）
