@@ -283,10 +283,11 @@ type ThinkingConfig struct {
 }
 
 type OpenAIMessage struct {
-	Role       string          `json:"role"`
-	Content    string          `json:"content"`
-	ToolCalls  []OpenAIToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string          `json:"tool_call_id,omitempty"`
+	Role             string          `json:"role"`
+	Content          string          `json:"content"`
+	ReasoningContent string          `json:"reasoning_content,omitempty"`
+	ToolCalls        []OpenAIToolCall `json:"tool_calls,omitempty"`
+	ToolCallID       string          `json:"tool_call_id,omitempty"`
 }
 
 type OpenAITool struct {
@@ -405,16 +406,6 @@ func normalizeGeminiSchema(schema interface{}) interface{} {
 		return schema
 	}
 }
-var toolCallIDCounter = make(map[string]int)
-
-func resetToolCallCounter() {
-	toolCallIDCounter = make(map[string]int)
-}
-
-func nextToolCallID(name string) string {
-	toolCallIDCounter[name]++
-	return fmt.Sprintf("fc_%s_%d", name, toolCallIDCounter[name]-1)
-}
 
 func convertGeminiToolsToOpenAI(tools []Tool) []OpenAITool {
 	var result []OpenAITool
@@ -453,93 +444,49 @@ func convertToOpenAI(gemini *GeminiRequest, model string, apiKey string, baseURL
 		}
 	}
 
-	// 跨 content 追踪 functionCall ID，确保 functionResponse 匹配同名 functionCall
-	funcCallIDs := make(map[string]string)
-
 	for _, c := range gemini.Contents {
 		role := "user"
 		if c.Role == "model" {
 			role = "assistant"
 		}
 
-		// 检查是否存在 functionCall 或 functionResponse
-		hasFunctionCall := false
-		hasFunctionResponse := false
+		// 将 Gemini parts 转为 OpenAI 消息
+		// - functionCall/functionResponse → 文本化（避免 tool_call ID 不匹配）
+		// - thought parts → reasoning_content（DeepSeek 要求回传）
+		var textParts []string
+		var thoughtParts []string
+
 		for _, p := range c.Parts {
 			if p.FunctionCall != nil {
-				hasFunctionCall = true
-			}
-			if p.FunctionResponse != nil {
-				hasFunctionResponse = true
+				argsBytes, _ := json.Marshal(p.FunctionCall.Args)
+				textParts = append(textParts, fmt.Sprintf("[FunctionCall: %s(%s)]", p.FunctionCall.Name, string(argsBytes)))
+			} else if p.FunctionResponse != nil {
+				respBytes, _ := json.Marshal(p.FunctionResponse.Response)
+				textParts = append(textParts, fmt.Sprintf("[FunctionResponse: %s → %s]", p.FunctionResponse.Name, string(respBytes)))
+			} else if p.Thought {
+				thoughtParts = append(thoughtParts, p.Text)
+			} else {
+				textParts = append(textParts, p.Text)
 			}
 		}
 
-		if hasFunctionCall {
-			// Gemini functionCall → OpenAI assistant tool_calls
-			var toolCalls []OpenAIToolCall
-			var textParts []string
-			fcCounter := make(map[string]int)
-			for _, p := range c.Parts {
-				if p.FunctionCall != nil {
-					fcCounter[p.FunctionCall.Name]++
-					fcID := fmt.Sprintf("fc_%s_%d", p.FunctionCall.Name, fcCounter[p.FunctionCall.Name]-1)
-					funcCallIDs[p.FunctionCall.Name] = fcID
-					argsBytes, _ := json.Marshal(p.FunctionCall.Args)
-					tc := OpenAIToolCall{
-						ID:   fcID,
-						Type: "function",
-						Function: OpenAIToolCallFunction{
-							Name:      p.FunctionCall.Name,
-							Arguments: string(argsBytes),
-						},
-					}
-					toolCalls = append(toolCalls, tc)
-				}
-				if p.Text != "" {
-					textParts = append(textParts, p.Text)
-				}
-			}
-			// DeepSeek 要求 assistant content 不能为空
-			content := strings.Join(textParts, "")
-			if content == "" {
-				content = " "
-			}
-			req.Messages = append(req.Messages, OpenAIMessage{
-				Role:      "assistant",
-				Content:   content,
-				ToolCalls: toolCalls,
-			})
-		} else if hasFunctionResponse {
-			// Gemini functionResponse → OpenAI tool
-			for _, p := range c.Parts {
-				if p.FunctionResponse != nil {
-					respBytes, _ := json.Marshal(p.FunctionResponse.Response)
-					// 使用与 functionCall 相同的 ID 生成方式保证匹配
-					fcID := fmt.Sprintf("fc_%s_0", p.FunctionResponse.Name)
-					// 如果同一个请求中有同名 functionCall，使用其最新 ID
-					if id, ok := funcCallIDs[p.FunctionResponse.Name]; ok {
-						fcID = id
-					}
-					req.Messages = append(req.Messages, OpenAIMessage{
-						Role:       "tool",
-						Content:    string(respBytes),
-						ToolCallID: fcID,
-					})
-				}
-				if p.Text != "" {
-					req.Messages = append(req.Messages, OpenAIMessage{Role: "user", Content: p.Text})
-				}
-			}
-		} else {
-			// 普通文本消息
-			text := ""
-			for _, p := range c.Parts {
-				text += p.Text
-			}
-			if text != "" {
-				req.Messages = append(req.Messages, OpenAIMessage{Role: role, Content: text})
-			}
+		text := strings.Join(textParts, "\n")
+		thought := strings.Join(thoughtParts, "\n")
+
+		if text == "" && thought == "" {
+			continue
 		}
+
+		msg := OpenAIMessage{Role: role}
+		if text != "" {
+			msg.Content = text
+		} else {
+			msg.Content = " "
+		}
+		if thought != "" && role == "assistant" {
+			msg.ReasoningContent = thought
+		}
+		req.Messages = append(req.Messages, msg)
 	}
 
 	// 添加工具声明（不发送 tool_choice，DeepSeek V4 不支持）
