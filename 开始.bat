@@ -12,12 +12,20 @@ if %errorlevel% neq 0 (
 
 cd /d "%SELF_DIR%"
 
-REM 检查端口是否已被占用
-netstat -ano | findstr "127.0.0.1:443" | findstr "LISTENING" >nul
-if not errorlevel 1 (
-    echo 代理已在运行中（端口 443 被占用）
-    pause
-    exit /b
+REM 检查是否已经有代理进程在运行（用 PID 文件，不要查端口——443 可能被其他服务占用）
+if exist "%TEMP%\antigravity-proxy.pid" (
+    set /p OLD_PID=<"%TEMP%\antigravity-proxy.pid"
+    setlocal enabledelayedexpansion
+    tasklist /fi "PID eq !OLD_PID!" 2>nul | find "!OLD_PID!" >nul
+    if not errorlevel 1 (
+        echo 代理已在运行中（PID: !OLD_PID!）
+        endlocal
+        pause
+        exit /b
+    )
+    endlocal
+    REM PID 文件存在但进程已死 → 清理后继续
+    del "%TEMP%\antigravity-proxy.pid" 2>nul
 )
 
 if not exist "%SELF_DIR%antigravity-proxy-bg.exe" (
@@ -27,15 +35,13 @@ if not exist "%SELF_DIR%antigravity-proxy-bg.exe" (
     exit /b
 )
 
-if exist "%TEMP%\antigravity-proxy.pid" del "%TEMP%\antigravity-proxy.pid" 2>nul
-
 echo 正在启动 Antigravity BYOK 代理...
 start "" /B "%SELF_DIR%antigravity-proxy-bg.exe" --https-port=443 --http-port=8080 --setup-hosts --setup-cert
 
 timeout /t 4 >nul
 
-netstat -ano | findstr "127.0.0.1:443" | findstr "LISTENING" >nul
-if not errorlevel 1 (
+REM 通过 PID 文件判断是否启动成功（进程起来后 Go 会写该文件）
+if exist "%TEMP%\antigravity-proxy.pid" (
     echo ✅ 代理已启动
     echo    管理: http://127.0.0.1:8080/
     echo    日志: %%TEMP%%\antigravity-proxy.log
