@@ -466,13 +466,19 @@ func convertToOpenAI(gemini *GeminiRequest, model string, apiKey string, baseURL
 
 		for _, p := range c.Parts {
 			if p.FunctionCall != nil {
-				argsBytes, _ := json.Marshal(p.FunctionCall.Args)
-				textParts = append(textParts, fmt.Sprintf("[FunctionCall: %s(%s)]", p.FunctionCall.Name, string(argsBytes)))
+				obj, _ := json.Marshal(map[string]interface{}{
+					"name": p.FunctionCall.Name,
+					"args": p.FunctionCall.Args,
+				})
+				textParts = append(textParts, string(obj))
 			} else if p.FunctionResponse != nil {
-				respBytes, _ := json.Marshal(p.FunctionResponse.Response)
-				textParts = append(textParts, fmt.Sprintf("[FunctionResponse: %s -> %s]", p.FunctionResponse.Name, string(respBytes)))
+				obj, _ := json.Marshal(map[string]interface{}{
+					"name":     p.FunctionResponse.Name,
+					"response": p.FunctionResponse.Response,
+				})
+				textParts = append(textParts, string(obj))
 			} else if p.InlineData != nil {
-				textParts = append(textParts, fmt.Sprintf("[InlineData: %s, %d bytes]", p.InlineData.MimeType, len(p.InlineData.Data)))
+				textParts = append(textParts, fmt.Sprintf("[inline data: %s]", p.InlineData.MimeType))
 			} else if p.Thought {
 				thoughtParts = append(thoughtParts, p.Text)
 			} else {
