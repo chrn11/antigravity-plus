@@ -2,6 +2,8 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 
+:menu
+cls
 echo ========================================
 echo   Antigravity BYOK Proxy Manager
 echo ========================================
@@ -9,12 +11,13 @@ echo.
 echo   [1] Start proxy
 echo   [2] Stop proxy
 echo   [3] Restart (stop + start)
+echo   [0] Exit
 echo.
-set /p ACTION="Select (1/2/3): "
+set /p ACTION="Select (0-3): "
 
+if "%ACTION%"=="0" exit /b
 if "%ACTION%"=="2" goto stop
 if "%ACTION%"=="3" goto restart
-REM default (1 or any other) = start
 
 REM ========== start ==========
 :start
@@ -26,15 +29,15 @@ if %errorlevel% neq 0 (
     powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs" 2>nul
     if errorlevel 1 (
         echo [UAC] Failed. Please run as Administrator manually.
-        pause
     )
-    exit /b
+    pause
+    goto menu
 )
 
 if not exist "antigravity-proxy-bg.exe" (
     echo [ERR] antigravity-proxy-bg.exe not found
     pause
-    exit /b
+    goto menu
 )
 
 echo [..] Starting Antigravity BYOK Proxy...
@@ -50,12 +53,12 @@ echo [OK] Proxy started (PID: %NEW_PID%)
 echo      Management: http://127.0.0.1:8080/
 echo      Log: %TEMP%\antigravity-proxy.log
 pause
-exit /b
+goto menu
 
 :start_failed
 echo [ERR] Failed to start. See log: %TEMP%\antigravity-proxy.log
 pause
-exit /b
+goto menu
 
 REM ========== stop ==========
 :stop
@@ -71,12 +74,12 @@ if exist "%TEMP%\antigravity-proxy.pid" (
     )
     del "%TEMP%\antigravity-proxy.pid" 2>nul
     pause
-    exit /b
+    goto menu
 )
 
 powershell -NoProfile -Command "& { $p = Get-Process 'antigravity-proxy-bg' -ErrorAction SilentlyContinue; if ($p) { Write-Host 'Stopping proxy...'; $p | Stop-Process -Force; Write-Host '[OK] Stopped' } else { Write-Host 'Proxy not running' } }" 2>nul
 pause
-exit /b
+goto menu
 
 REM ========== restart ==========
 :restart
