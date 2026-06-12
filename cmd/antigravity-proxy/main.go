@@ -95,16 +95,15 @@ func main() {
 	}()
 	log.Printf("MITM 代理监听: https://127.0.0.1:%d", *httpsPort)
 
-	fmt.Printf("\nAntigravity BYOK 代理已就绪\n")
-	fmt.Printf("  HTTP  端口: %d（管理端点代理）\n", *httpPort)
-	fmt.Printf("  HTTPS 端口: %d（AI 请求 MITM 拦截）\n", *httpsPort)
-	fmt.Printf("  日志文件: %s\n", filepath.Join(os.TempDir(), "antigravity-proxy.log"))
-	fmt.Println()
+	logf("Antigravity BYOK 代理已就绪")
+	logf("  HTTP  端口: %d（管理端点代理）", *httpPort)
+	logf("  HTTPS 端口: %d（AI 请求 MITM 拦截）", *httpsPort)
+	logf("  日志文件: %s", filepath.Join(os.TempDir(), "antigravity-proxy.log"))
 
 	// 等待退出信号
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
-	fmt.Println("\n正在关闭...")
+	logf("正在关闭...")
 	cancel()
 }
