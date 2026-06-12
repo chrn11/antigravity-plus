@@ -75,8 +75,7 @@ func main() {
 				log.Printf("    127.0.0.1 %s", d)
 			}
 		} else {
-			log.Printf("✓ hosts 文件已配置（%d 个域名）", len(targetDomains))
-			defer hm.RemoveEntries(targetDomains)
+			log.Printf("✓ hosts 文件已配置（%d 个域名，持久化）", len(targetDomains))
 		}
 	}
 
