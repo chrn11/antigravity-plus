@@ -83,19 +83,19 @@ func main() {
 	httpProxy := NewHTTPProxy(*httpPort, cfg)
 	go func() {
 		if err := httpProxy.Start(ctx); err != nil {
-			log.Fatalf("HTTP 代理启动失败: %v", err)
+			log.Printf("HTTP 代理启动失败: %v（管理面板不可用，不影响 MITM 代理）", err)
 		}
 	}()
-	log.Printf("✓ HTTP 代理已启动: http://127.0.0.1:%d", *httpPort)
+	log.Printf("HTTP 代理监听: http://127.0.0.1:%d", *httpPort)
 
 	// 启动 HTTPS MITM 代理（AI 请求拦截）
 	mitmProxy := NewMITMProxy(*httpsPort, ca, cfg)
 	go func() {
 		if err := mitmProxy.Start(ctx); err != nil {
-			log.Fatalf("MITM 代理启动失败: %v", err)
+			log.Printf("MITM 代理启动失败: %v", err)
 		}
 	}()
-	log.Printf("✓ MITM 代理已启动: https://127.0.0.1:%d", *httpsPort)
+	log.Printf("MITM 代理监听: https://127.0.0.1:%d", *httpsPort)
 
 	fmt.Printf("\nAntigravity BYOK 代理已就绪\n")
 	fmt.Printf("  HTTP  端口: %d（管理端点代理）\n", *httpPort)
