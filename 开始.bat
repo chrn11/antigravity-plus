@@ -53,7 +53,7 @@ if not exist "antigravity-proxy-bg.exe" (
 )
 
 echo [..] Starting Antigravity BYOK Proxy...
-start "" antigravity-proxy-bg.exe --https-port=443 --http-port=8080 --setup-hosts --setup-cert
+start /B "" antigravity-proxy-bg.exe --https-port=443 --http-port=8080 --setup-hosts --setup-cert
 ping -n 5 127.0.0.1 >nul
 
 if not exist "%TEMP%\antigravity-proxy.pid" goto start_failed
