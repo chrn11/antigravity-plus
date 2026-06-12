@@ -206,9 +206,11 @@ func newBypassTransport() *http.Transport {
 			}
 
 			// 在隧道上建立 TLS 连接（支持 HTTP/2 ALPN）
+			// bypass 连接通过本地 mihomo 隧道到 Google，跳过证书验证
 			tlsConfig := &tls.Config{
-				ServerName: host,
-				NextProtos: []string{"h2", "http/1.1"},
+				ServerName:         host,
+				NextProtos:         []string{"h2", "http/1.1"},
+				InsecureSkipVerify: true,
 			}
 			tlsConn := tls.Client(conn, tlsConfig)
 			if err := tlsConn.HandshakeContext(ctx); err != nil {
