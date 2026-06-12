@@ -27,35 +27,35 @@ func (hm *HostsManager) AddEntries(domains []string) error {
 
 	content := string(data)
 
-	// 检查是否已存在
+	// 如果已存在旧条目，先移除
 	if strings.Contains(content, hostsMarkBegin) {
-		logf("hosts 文件已包含 antigravity-plus 条目，跳过")
-		return nil
+		beginIdx := strings.Index(content, hostsMarkBegin)
+		endIdx := strings.Index(content, hostsMarkEnd)
+		if beginIdx >= 0 && endIdx >= 0 {
+			content = content[:beginIdx] + content[endIdx+len(hostsMarkEnd):]
+			// 去掉尾部多余换行
+			content = strings.TrimRight(content, "\r\n") + "\r\n"
+		}
 	}
 
 	// 构建新条目
 	var entries strings.Builder
-	entries.WriteString(hostsMarkBegin + "\n")
+	entries.WriteString(hostsMarkBegin + "\r\n")
 	for _, d := range domains {
-		entries.WriteString(fmt.Sprintf("127.0.0.1 %s\n", d))
+		entries.WriteString(fmt.Sprintf("127.0.0.1 %s\r\n", d))
 	}
-	entries.WriteString(hostsMarkEnd + "\n")
+	entries.WriteString(hostsMarkEnd + "\r\n")
 
-	// 追加到 hosts 文件
-	f, err := os.OpenFile(hostsFile, os.O_APPEND|os.O_WRONLY, 0666)
-	if err != nil {
-		return fmt.Errorf("打开 hosts 文件失败（需要管理员权限）: %w", err)
-	}
-	defer f.Close()
-
-	if _, err := f.WriteString(entries.String()); err != nil {
-		return fmt.Errorf("写入 hosts 文件失败: %w", err)
+	// 写入 hosts 文件
+	newContent := strings.TrimRight(content, "\r\n") + "\r\n" + entries.String()
+	if err := os.WriteFile(hostsFile, []byte(newContent), 0666); err != nil {
+		return fmt.Errorf("写入 hosts 文件失败（需要管理员权限）: %w", err)
 	}
 
 	// 刷新 DNS 缓存
 	hm.flushDNS()
 
-	logf("已向 hosts 文件添加 %d 个域名条目", len(domains))
+	logf("已向 hosts 文件更新 %d 个域名条目", len(domains))
 	return nil
 }
 
