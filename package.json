@@ -1,0 +1,22 @@
+{
+  "name": "antigravity-plus",
+  "version": "2.0.0",
+  "description": "Antigravity BYOK — Gemini → OpenAI 协议代理，支持 DeepSeek",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/start.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "keytar": "^7.9.0",
+    "node-forge": "^1.4.0"
+  },
+  "devDependencies": {
+    "@electron/asar": "^4.2.0",
+    "@types/node": "^20.11.0",
+    "@types/node-forge": "^1.3.14",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  }
+}

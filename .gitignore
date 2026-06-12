@@ -1,0 +1,36 @@
+# 依赖
+node_modules/
+
+# 构建输出
+dist/
+
+# Go 编译产物
+antigravity-proxy.exe
+antigravity-proxy-bg.exe
+*.exe~
+*.test
+
+# 测试工具
+.test_tools/
+
+# 日志
+*.log
+*.pid
+
+# 环境/密钥
+.env
+*.key
+*.pem
+
+# IDE
+.vscode/
+.idea/
+
+# 项目规划
+.omo/
+
+# 操作系统
+Thumbs.db
+Desktop.ini
+$null
+nul
