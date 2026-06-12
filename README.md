@@ -74,3 +74,16 @@
 - 必须以管理员权限运行，否则无法修改 hosts 文件和安装 CA 证书
 - 停止代理时会自动恢复 hosts 文件
 - 若开机自启，请在 `安装.bat` 中输入 `y` 确认
+
+## 免责声明
+
+本项目的全部代码（包括架构设计、协议转换、前端界面等）**纯由 AI（Claude/Cursor Agent）从零到一自动生成**，仅经过人工需求描述和功能确认。作者对代码质量、安全性或适用性不作任何明示或暗示的保证。使用本软件所产生的一切风险由使用者自行承担。
+
+## 参考
+
+本项目的实现参考了以下优秀开源项目和研究：
+
+- **[Cursor助手](https://dcne38qm5vlg.feishu.cn/wiki/K2YHwSbAjilCZ6k3ywQcHnxFn7e)** — 基于 Wails v3 的跨平台 Cursor IDE 本地代理服务，提供了 MITM 代理、BYOK 模型网关等完整架构参考
+- **[白帽酱](https://rce.moe/)** — Cursor 协议逆向研究（[Cursor 逆向笔记](https://rce.moe/2026/01/31/cursor-reverse-notes-1/)），为理解 Antigravity 的 API 通信协议提供了重要基础
+- **DeepSeek** — 提供高性能的 API 服务，支持 OpenAI 兼容的函数调用和思考模式
+- **mihomo (Clash Meta)** — 本地透明代理，用于非 AI 请求的 SOCKS5 隧道转发
