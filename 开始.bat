@@ -36,17 +36,26 @@ if not exist "%SELF_DIR%antigravity-proxy-bg.exe" (
 )
 
 echo 正在启动 Antigravity BYOK 代理...
-start "" /B "%SELF_DIR%antigravity-proxy-bg.exe" --https-port=443 --http-port=8080 --setup-hosts --setup-cert
+REM 将 stderr 也重定向到日志文件，避免 Go 启动阶段错误喷到控制台
+start "" /B "%SELF_DIR%antigravity-proxy-bg.exe" --https-port=443 --http-port=8080 --setup-hosts --setup-cert 2>>"%TEMP%\antigravity-proxy.log"
 
 timeout /t 4 >nul
 
-REM 通过 PID 文件判断是否启动成功（进程起来后 Go 会写该文件）
+REM 通过 PID 文件 + 进程存活双重确认
 if exist "%TEMP%\antigravity-proxy.pid" (
-    echo ✅ 代理已启动
-    echo    管理: http://127.0.0.1:8080/
-    echo    日志: %%TEMP%%\antigravity-proxy.log
-) else (
-    echo ❌ 启动失败，查看日志: %%TEMP%%\antigravity-proxy.log
+    set /p NEW_PID=<"%TEMP%\antigravity-proxy.pid"
+    setlocal enabledelayedexpansion
+    tasklist /fi "PID eq !NEW_PID!" 2>nul | find "!NEW_PID!" >nul
+    if not errorlevel 1 (
+        echo ✅ 代理已启动（PID: !NEW_PID!）
+        endlocal
+        echo    管理: http://127.0.0.1:8080/
+        echo    日志: %%TEMP%%\antigravity-proxy.log
+        pause
+        exit /b
+    )
+    endlocal
 )
 
+echo ❌ 启动失败，查看日志: %%TEMP%%\antigravity-proxy.log
 pause
