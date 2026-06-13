@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -436,6 +438,12 @@ func convertGeminiToolsToOpenAI(tools []Tool) []OpenAITool {
 	return result
 }
 
+// generateToolCallID 为工具调用生成确定性 ID，便于 FunctionResponse 回传时匹配
+func generateToolCallID(name string, idx int) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", name, idx)))
+	return "call_" + hex.EncodeToString(sum[:8])
+}
+
 func convertToOpenAI(gemini *GeminiRequest, model string, apiKey string, baseURL string) *OpenAIChatRequest {
 	req := &OpenAIChatRequest{
 		Model:  model,
@@ -452,36 +460,66 @@ func convertToOpenAI(gemini *GeminiRequest, model string, apiKey string, baseURL
 		}
 	}
 
+	// 为 FunctionCall 生成 ID，并按 name 维护 FIFO 队列，供后续 FunctionResponse 匹配 tool_call_id
+	callIDQueue := make(map[string][]string)
+	nextCallIdx := make(map[string]int)
+
 	for _, c := range gemini.Contents {
-		role := "user"
+		baseRole := "user"
 		if c.Role == "model" {
-			role = "assistant"
+			baseRole = "assistant"
 		}
 
-		// 将 Gemini parts 转为 OpenAI 消息
-		// - functionCall/functionResponse → 文本化（避免 tool_call ID 不匹配）
-		// - thought parts → reasoning_content（DeepSeek 要求回传）
 		var textParts []string
 		var thoughtParts []string
+		var toolCalls []OpenAIToolCall
 
 		for _, p := range c.Parts {
-			if p.FunctionCall != nil {
-				obj, _ := json.Marshal(map[string]interface{}{
-					"name": p.FunctionCall.Name,
-					"args": p.FunctionCall.Args,
+			switch {
+			case p.FunctionCall != nil:
+				name := p.FunctionCall.Name
+				idx := nextCallIdx[name]
+				nextCallIdx[name] = idx + 1
+				id := generateToolCallID(name, idx)
+				callIDQueue[name] = append(callIDQueue[name], id)
+
+				argsJSON, _ := json.Marshal(p.FunctionCall.Args)
+				toolCalls = append(toolCalls, OpenAIToolCall{
+					ID:   id,
+					Type: "function",
+					Function: OpenAIToolCallFunction{
+						Name:      name,
+						Arguments: string(argsJSON),
+					},
 				})
-				textParts = append(textParts, string(obj))
-			} else if p.FunctionResponse != nil {
-				obj, _ := json.Marshal(map[string]interface{}{
-					"name":     p.FunctionResponse.Name,
-					"response": p.FunctionResponse.Response,
+
+			case p.FunctionResponse != nil:
+				name := p.FunctionResponse.Name
+				var id string
+				if len(callIDQueue[name]) > 0 {
+					id = callIDQueue[name][0]
+					callIDQueue[name] = callIDQueue[name][1:]
+				} else {
+					// 没有对应 FunctionCall 时回退生成一个 ID
+					idx := nextCallIdx[name]
+					nextCallIdx[name] = idx + 1
+					id = generateToolCallID(name, idx)
+				}
+
+				respJSON, _ := json.Marshal(p.FunctionResponse.Response)
+				req.Messages = append(req.Messages, OpenAIMessage{
+					Role:       "tool",
+					ToolCallID: id,
+					Content:    string(respJSON),
 				})
-				textParts = append(textParts, string(obj))
-			} else if p.InlineData != nil {
+
+			case p.InlineData != nil:
 				textParts = append(textParts, fmt.Sprintf("[inline data: %s]", p.InlineData.MimeType))
-			} else if p.Thought {
+
+			case p.Thought:
 				thoughtParts = append(thoughtParts, p.Text)
-			} else {
+
+			default:
 				textParts = append(textParts, p.Text)
 			}
 		}
@@ -489,20 +527,21 @@ func convertToOpenAI(gemini *GeminiRequest, model string, apiKey string, baseURL
 		text := strings.Join(textParts, "\n")
 		thought := strings.Join(thoughtParts, "\n")
 
-		if text == "" && thought == "" {
-			continue
+		if text != "" || thought != "" || len(toolCalls) > 0 {
+			msg := OpenAIMessage{Role: baseRole}
+			if text != "" {
+				msg.Content = text
+			} else {
+				msg.Content = " "
+			}
+			if thought != "" && baseRole == "assistant" {
+				msg.ReasoningContent = thought
+			}
+			if len(toolCalls) > 0 && baseRole == "assistant" {
+				msg.ToolCalls = toolCalls
+			}
+			req.Messages = append(req.Messages, msg)
 		}
-
-		msg := OpenAIMessage{Role: role}
-		if text != "" {
-			msg.Content = text
-		} else {
-			msg.Content = " "
-		}
-		if thought != "" && role == "assistant" {
-			msg.ReasoningContent = thought
-		}
-		req.Messages = append(req.Messages, msg)
 	}
 
 	// 添加工具声明（不发送 tool_choice，DeepSeek V4 不支持）
