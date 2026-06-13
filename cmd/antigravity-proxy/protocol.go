@@ -554,11 +554,16 @@ func convertToOpenAI(gemini *GeminiRequest, model string, apiKey string, baseURL
 
 	// deepseek-v4-pro 启用思考模式（DeepSeek API 官方支持）
 	// 文档：thinking: {"type": "enabled"}, reasoning_effort: "high"
+	// 注意：history 里的 reasoning_content 必须由 DeepSeek 自己生成，这里统一清空，
+	// 避免 Antigravity 内置的 reasoning 内容被传回导致 400。
 	if model == "deepseek-v4-pro" {
 		req.Thinking = &ThinkingConfig{Type: "enabled"}
 		req.ReasoningEffort = "high"
 		req.Temperature = 0
 		req.TopP = 0
+		for i := range req.Messages {
+			req.Messages[i].ReasoningContent = ""
+		}
 	}
 
 	return req
