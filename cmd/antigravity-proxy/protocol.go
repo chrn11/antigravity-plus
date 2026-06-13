@@ -798,10 +798,23 @@ func writeSSEFunctionCallEvent(w http.ResponseWriter, flusher http.Flusher, tool
 }
 
 func writeSSEError(w http.ResponseWriter, flusher http.Flusher, errMsg string) {
+	responseID := fmt.Sprintf("resp_%d", time.Now().UnixMilli())
 	event := map[string]interface{}{
-		"error": map[string]interface{}{
-			"code":    503,
-			"message": errMsg,
+		"response": map[string]interface{}{
+			"candidates": []map[string]interface{}{
+				{
+					"index":         0,
+					"content":       map[string]interface{}{"role": "model", "parts": []map[string]interface{}{{"text": "[代理错误] " + errMsg}}},
+					"finishReason":  "STOP",
+					"safetyRatings": []map[string]interface{}{
+						{"category": "HARM_CATEGORY_HARASSMENT", "probability": "NEGLIGIBLE"},
+						{"category": "HARM_CATEGORY_HATE_SPEECH", "probability": "NEGLIGIBLE"},
+						{"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "probability": "NEGLIGIBLE"},
+						{"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "probability": "NEGLIGIBLE"},
+					},
+				},
+			},
+			"responseId": responseID,
 		},
 	}
 	writeSSE(w, flusher, event)
