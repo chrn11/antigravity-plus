@@ -471,7 +471,6 @@ func convertToOpenAI(gemini *GeminiRequest, model string, apiKey string, baseURL
 		}
 
 		var textParts []string
-		var thoughtParts []string
 		var toolCalls []OpenAIToolCall
 
 		for _, p := range c.Parts {
@@ -517,7 +516,9 @@ func convertToOpenAI(gemini *GeminiRequest, model string, apiKey string, baseURL
 				textParts = append(textParts, fmt.Sprintf("[inline data: %s]", p.InlineData.MimeType))
 
 			case p.Thought:
-				thoughtParts = append(thoughtParts, p.Text)
+				// thought 作为普通文本合并，不映射到 DeepSeek reasoning_content
+				// （reasoning_content 必须由 DeepSeek 自己生成并原样回传）
+				textParts = append(textParts, p.Text)
 
 			default:
 				textParts = append(textParts, p.Text)
@@ -525,17 +526,13 @@ func convertToOpenAI(gemini *GeminiRequest, model string, apiKey string, baseURL
 		}
 
 		text := strings.Join(textParts, "\n")
-		thought := strings.Join(thoughtParts, "\n")
 
-		if text != "" || thought != "" || len(toolCalls) > 0 {
+		if text != "" || len(toolCalls) > 0 {
 			msg := OpenAIMessage{Role: baseRole}
 			if text != "" {
 				msg.Content = text
 			} else {
 				msg.Content = " "
-			}
-			if thought != "" && baseRole == "assistant" {
-				msg.ReasoningContent = thought
 			}
 			if len(toolCalls) > 0 && baseRole == "assistant" {
 				msg.ToolCalls = toolCalls
